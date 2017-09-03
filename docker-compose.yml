@@ -1,0 +1,24 @@
+---
+version: '2'
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+    - 8080:80
+    volumes:
+    - "${PWD}/app/nginx/site.conf:/etc/nginx/conf.d/default.conf"
+    volumes_from:
+    - php
+  php:
+    command: php-fpm
+    entrypoint:
+    - docker-php-entrypoint
+    environment:
+    - DEBUG=1
+    image: php-otp-microservice-php:20170902153731
+    ports:
+    - 9000:9000
+    volumes:
+    - "${PWD}/app/code:/www"
+    working_dir: "/www"
+
