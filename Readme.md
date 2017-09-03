@@ -1,22 +1,25 @@
-Educational repository demonstrating approaches for using `ansible-container` to build custom dockerized applications.
+## Introduction
+
+Even today, approach to creating and managing containers is both manual and, in many ways, antiquated. Even for startups that use automation for their build processes, implementing containers often means maintaining complicated shell scripts to build the containers themselves. At the same moment, in classic server provisioning there are bunch of tools like Ansible, Chef, Puppet, Salt that efficiently take care on box provisioning. At the same moment, trying to apply those tools inside containers usually lead to size problem, as well as eliminating garbage upon use. That's why for now still, if you want minimal image, you manage Dockerfile on your own.
+
+`ansible-container` project, which is now close to release (0.9.1 as of time when this text was written) aims to build application images in a way, that from one hand guarantees that image will be as small as your play allows from other hand it takes a way from you direct shell scripting and allows to reuse bunch of ansible roles and snippets you might have from previous projects.
+
+From readme, everything seems nice per demo found at  https://github.com/ansible/ansible-container-demo.
+But let's check in real world if we would be able to do the same with our custom application supposed to be running on alpine based image. 
+ 
 
 ## Challenges to address
 
-In a typical site scenario, we should be able
+As for beginning, in a typical site scenario, we should at least be able
 
 - setup necessary development environment for ansible-container
 - build custom application image using ansible-container
 - run application , optionally debug application, stop application
 
 
-Ideally, everything seems nice per demo found at  https://github.com/ansible/ansible-container-demo
-
-but let's check if we would be able to do the same with our custom application supposed to be running on alpine based image. 
-
-
 ## Necessary setup for building image using ansible container
 
-As tool is under active development it makes sense to use python environment to isolate the image building environment.
+As tool is under active development it makes sense to use python virtual environment to isolate the image building environment.
 
 ```shell
 # optional create dedicated python virtual environment
@@ -28,17 +31,13 @@ workon ansible-container
 Install building dependencies
 ```shell
 pip install -U pip
-pip install ansible
-pip install ansible-container
-pip install prudentia
+pip install ansible-container[docker]
 ```
 
 at the moment of article writing versions used are
 
 ```shell
-ansible==2.3.2.0
 ansible-container==0.9.1
-prudentia==2.4
 ```
 
 you are invited to use pip freeze into requirements.txt for your release builds, to ensure that versions used are the same between distance builds.
@@ -54,13 +53,15 @@ Optionally you may put `ansible.cfg` file to configure your project specific set
 
 ## Prepare ansible roles you want to use with image
 
+The goal of using ansible-container in your processes - is reusing of plays you done earlier.
+
 Assuming, you want to build custom php based image for your application. If you already used ansible before, there are big chances, that you already have standalone ansible roles, parts or fragments.
 
 In our case we will use `sa-php-container` ansible role https://github.com/softasap/sa-php-container based historically on `sa-lamp`  https://github.com/softasap/sa-lamp.
 
 In particular, this ansible role allows us to:
 - have composer enabled image (by specifiing `option_install_composer: true`)
-- in order to have ability to build "staging troubleshoot image" - possibility to have preconfigured xdebug up
+- in order to have ability to build "staging troubleshoot image" - provides way to have preconfigured xdebug up
 
 ```
 option_install_xdebug: true
@@ -118,7 +119,7 @@ php_dev_extensions:
    - xdebug
 ```  
 
-Assume we have all 3rd party roles used under the `roles/` , in that way no additional changes needed to be introduced in `ansible.cfg`
+If we have all 3rd party roles used under the `roles/` , in that way no additional changes needed to be introduced in `ansible.cfg`
 
 ## Configure container.yml for ansible-container enabled project
 
@@ -217,7 +218,7 @@ Command "/usr/bin/python -u -c "import setuptools, tokenize;__file__='/tmp/pip-b
 So you might be lucky enough to understand reasoning.
 For example above, in reality this means, that your base image misses `make` tool installed, which somehow is supposed by `ansible-container` :)
 
-- Ensure all referenced images exist and are recent. In example above:
+- Ensure all referenced images exist and are recent, even if tool supposes to manage it. In example above:
 ```
 docker pull alpine:3.5
 docker pull nginx:alpine
@@ -257,6 +258,9 @@ php-otp-microservice-php                            20170902153731        e5e537
 php-otp-microservice-php                            latest                e5e5373a4b1f        3 minutes ago       45.7MB
 php-otp-microservice-conductor                      latest                3ae8a5261414        4 minutes ago       463MB
 ```
+
+![alt text](https://raw.githubusercontent.com/Voronenko/devops-ansible-container-demo/master/docs/images/1_built_app_image.png "Build artifacts")
+
 
 ## Test run
 
@@ -303,6 +307,16 @@ services:
     working_dir: "/www"
 ```
 
+After `docker-compose up` we see
+
+![alt text](https://raw.githubusercontent.com/Voronenko/devops-ansible-container-demo/master/docs/images/2_testing_app_run.png "Running test build results")
+
+Let's check if application is up itself. Navigating to specified ports in docker compose and ... yes, we are up
+
+
+
+![alt text](https://raw.githubusercontent.com/Voronenko/devops-ansible-container-demo/master/docs/images/3_running_application.png "We are up")
+
 
 ansible-container's stop command is used to stop running application.
 
@@ -312,4 +326,13 @@ PROJECT_NAME=`cat .project-name`
 ansible-container --debug --project-name ${PROJECT_NAME} stop
 ```
 
+## Code in action
+
+You can try and experiment on your own by forking https://github.com/Voronenko/devops-ansible-container-demo
+
+Makefile steps are clean initialize build run, but if you are not familiar with make, under the docs there are shell files to do the same steps, as mentioned in article. Your comments and suggestions are welcomed.
+
+
 ## Points of Interest
+
+Per investigation tool seems to be useful. In our organization we already have 130+ well tested ansible roles, which should allow us to reuse number of findings in solutions in building containers. Tool still under active development, not always is easy to troubleshoot, but still look promising. Even in current state it is already possible to use it to build images in your dockerized application ci/cd process. 
